@@ -1,0 +1,42 @@
+name:                fluent-logger
+version:             0.1.0.0
+synopsis:            A structured logger for Fluentd (Haskell)
+description:         A structured logger for Fluentd (Haskell) <http://fluentd.org/>
+license:             Apache-2.0
+license-file:        LICENSE
+author:              Noriyuki OHKAWA <n.ohkawa@gmail.com>
+maintainer:          Noriyuki OHKAWA <n.ohkawa@gmail.com>
+copyright:           Copyright (c) 2012, Noriyuki OHKAWA
+category:            Network
+build-type:          Simple
+cabal-version:       >=1.8
+tested-with:         GHC ==7.4.2
+
+library
+  exposed-modules:     Network.Fluent.Logger
+  ghc-options:         -Wall -threaded
+  build-depends:       base ==4.*
+                     , network >=2.3.0.13 && <2.5
+                     , network-socket-options >=0.1 && <0.3
+                     , bytestring
+                     , time >=1.2.0.3
+                     , old-locale
+                     , msgpack >=0.7.1 && <0.8
+                     , stm >=2.3
+
+test-suite fluent-logger-spec
+  hs-source-dirs:      test
+  type:                exitcode-stdio-1.0
+  main-is:             Spec.hs
+  build-depends:       base ==4.*
+                     , fluent-logger
+                     , network
+                     , msgpack
+                     , network-conduit
+                     , conduit
+                     , bytestring
+                     , transformers
+                     , hspec
+                     , attoparsec
+                     , old-locale
+                     , time
