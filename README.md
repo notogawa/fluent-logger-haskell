@@ -12,8 +12,8 @@ fluent-logger-haskell is a Haskell libraries, to record the events from Haskell 
 
 # Install
 
-~~ {.bash}
+~~~ {.bash}
 $ cabal update
 $ cabal install fluent-logger
 $ cabal install fluent-logger-conduit
-~~
+~~~
