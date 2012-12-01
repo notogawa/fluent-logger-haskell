@@ -12,13 +12,17 @@ build-type:          Simple
 cabal-version:       >=1.8
 tested-with:         GHC ==7.4.2
 
+source-repository head
+  type:                git
+  location:            https://github.com/notogawa/fluent-logger-haskell.git
+
 library
   exposed-modules:     Network.Fluent.Logger
-  ghc-options:         -Wall -threaded
+  ghc-options:         -Wall
   build-depends:       base ==4.*
+                     , bytestring
                      , network >=2.3.0.13 && <2.5
                      , network-socket-options >=0.1 && <0.3
-                     , bytestring
                      , time >=1.2.0.3
                      , old-locale
                      , msgpack >=0.7.1 && <0.8
@@ -40,3 +44,11 @@ test-suite fluent-logger-spec
                      , attoparsec
                      , old-locale
                      , time
+
+benchmark fluent-logger-benchmark
+  hs-source-dirs:      benchmark
+  type:                exitcode-stdio-1.0
+  main-is:             benchmark.hs
+  build-depends:       base ==4.*
+                     , fluent-logger
+                     , criterion

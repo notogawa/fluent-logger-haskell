@@ -20,6 +20,8 @@ module Network.Fluent.Logger
     ( -- * Logger
       FluentLogger
     , withFluentLogger
+    , newFluentLogger
+    , closeFluentLogger
       -- * Settings
     , FluentSettings(..)
     , defaultFluentSettings
@@ -127,6 +129,10 @@ sendFluent logger sock = handle (done sock) $ do
       done :: NS.Socket -> SomeException -> IO ()
       done = const . NS.sClose
 
+-- | Create a fluent logger
+--
+-- Since 0.1.0.0
+--
 newFluentLogger :: FluentSettings -> IO FluentLogger
 newFluentLogger set = do
   tchan <- newTChanIO
@@ -139,6 +145,10 @@ newFluentLogger set = do
   rec logger <- mkLogger <$> forkIO (sender logger)
   return logger
 
+-- | Close logger
+--
+-- Since 0.1.0.0
+--
 closeFluentLogger :: FluentLogger -> IO ()
 closeFluentLogger = killThread . fluentLoggerThread
 
