@@ -32,6 +32,8 @@ test-suite fluent-logger-spec
   hs-source-dirs:      test
   type:                exitcode-stdio-1.0
   main-is:             Spec.hs
+  other-modules:       MockServer
+                     , Network.Fluent.LoggerSpec
   build-depends:       base ==4.*
                      , fluent-logger
                      , network
