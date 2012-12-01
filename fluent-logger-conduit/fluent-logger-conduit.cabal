@@ -7,7 +7,7 @@ license-file:        LICENSE
 author:              Noriyuki OHKAWA <n.ohkawa@gmail.com>
 maintainer:          Noriyuki OHKAWA <n.ohkawa@gmail.com>
 copyright:           Copyright (c) 2012, Noriyuki OHKAWA
-category:            Network
+category:            Network, Conduit
 build-type:          Simple
 cabal-version:       >=1.8
 tested-with:         GHC ==7.4.2
