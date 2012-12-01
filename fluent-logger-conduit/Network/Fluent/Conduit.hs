@@ -16,10 +16,10 @@
 
 -- | Fluent Logger with Conduit Interface
 module Network.Fluent.Conduit
- ( -- * Sinks
-   sinkFluent
- , sinkFluentWithLogger
- ) where
+    ( -- * Sinks
+      sinkFluent
+    , sinkFluentWithLogger
+    ) where
 
 import Network.Fluent.Logger ( FluentSettings, FluentLogger, newFluentLogger, closeFluentLogger, post )
 import Control.Monad.IO.Class ( liftIO )

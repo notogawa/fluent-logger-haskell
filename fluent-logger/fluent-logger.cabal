@@ -2,7 +2,7 @@ name:                fluent-logger
 version:             0.1.0.0
 synopsis:            A structured logger for Fluentd (Haskell)
 description:         A structured logger for Fluentd (Haskell) <http://fluentd.org/>
-license:             Apache-2.0
+license:             OtherLicense
 license-file:        LICENSE
 author:              Noriyuki OHKAWA <n.ohkawa@gmail.com>
 maintainer:          Noriyuki OHKAWA <n.ohkawa@gmail.com>
