@@ -23,8 +23,7 @@ library
                      , bytestring
                      , network >=2.3.0.13 && <2.5
                      , network-socket-options >=0.1 && <0.3
-                     , time >=1.2.0.3
-                     , old-locale
+                     , time
                      , msgpack >=0.7.1 && <0.8
                      , stm >=2.3
 
@@ -44,7 +43,6 @@ test-suite fluent-logger-spec
                      , transformers
                      , hspec
                      , attoparsec
-                     , old-locale
                      , time
 
 benchmark fluent-logger-benchmark

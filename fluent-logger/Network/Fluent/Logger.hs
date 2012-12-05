@@ -34,7 +34,6 @@ import qualified Data.ByteString as BS
 import Data.ByteString.Char8 ( unpack )
 import qualified Data.ByteString.Lazy as LBS
 import Data.Monoid ( mconcat )
-import Data.Time ( getCurrentTime, formatTime )
 import qualified Network.Socket as NS
 import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
 import Network.Socket.ByteString.Lazy ( sendAll )
@@ -45,9 +44,9 @@ import Control.Concurrent.STM ( atomically
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar )
 import Control.Exception ( SomeException, handle, bracket, throwIO )
-import System.Locale ( defaultTimeLocale )
 import Data.MessagePack ( Packable, pack )
 import Data.Int ( Int64 )
+import Data.Time.Clock.POSIX ( getPOSIXTime )
 
 -- | Fluent logger settings
 --
@@ -160,8 +159,7 @@ withFluentLogger :: FluentSettings -> (FluentLogger -> IO a) -> IO a
 withFluentLogger set = bracket (newFluentLogger set) closeFluentLogger
 
 getCurrentEpochTime :: IO Int
-getCurrentEpochTime =
-    read . formatTime defaultTimeLocale "%s" <$> getCurrentTime
+getCurrentEpochTime = round <$> getPOSIXTime
 
 -- | Post a message.
 --

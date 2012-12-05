@@ -4,10 +4,9 @@ module Network.Fluent.LoggerSpec ( spec ) where
 import Control.Applicative
 import Control.Concurrent
 import Control.Monad
+import Data.Time.Clock.POSIX ( getPOSIXTime )
 import Data.ByteString ( ByteString )
 import Data.MessagePack
-import Data.Time ( getCurrentTime, formatTime )
-import System.Locale ( defaultTimeLocale )
 import Test.Hspec
 
 import Network.Fluent.Logger
@@ -38,8 +37,7 @@ postWithTimeSettings =
                           }
 
 getCurrentEpochTime :: IO Int
-getCurrentEpochTime =
-    read . formatTime defaultTimeLocale "%s" <$> getCurrentTime
+getCurrentEpochTime = round <$> getPOSIXTime
 
 postPostsMessage :: IO ()
 postPostsMessage =
