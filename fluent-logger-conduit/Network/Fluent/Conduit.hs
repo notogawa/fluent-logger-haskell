@@ -24,14 +24,14 @@ module Network.Fluent.Conduit
 import Network.Fluent.Logger ( FluentSettings, FluentLogger, newFluentLogger, closeFluentLogger, post )
 import Control.Monad.IO.Class ( liftIO )
 import Data.ByteString ( ByteString )
-import Data.Conduit ( MonadResource, GInfSink, bracketP, awaitForever )
+import Data.Conduit ( MonadResource, bracketP, awaitForever, Consumer )
 import Data.MessagePack ( Packable )
 
 -- | Stream all incoming pair ( label, data ) to the given Fluent.
 --
 -- Since 0.1.0.0
 --
-sinkFluent :: (MonadResource m, Packable a) => FluentSettings -> GInfSink (ByteString, a) m
+sinkFluent :: (MonadResource m, Packable a) => FluentSettings -> Consumer (ByteString, a) m ()
 sinkFluent set = bracketP
                  (newFluentLogger set)
                  (liftIO . closeFluentLogger)
@@ -41,5 +41,5 @@ sinkFluent set = bracketP
 --
 -- Since 0.1.0.0
 --
-sinkFluentWithLogger :: (MonadResource m, Packable a) => FluentLogger -> GInfSink (ByteString, a) m
+sinkFluentWithLogger :: (MonadResource m, Packable a) => FluentLogger -> Consumer (ByteString, a) m ()
 sinkFluentWithLogger logger = awaitForever $ liftIO . uncurry (post logger)
