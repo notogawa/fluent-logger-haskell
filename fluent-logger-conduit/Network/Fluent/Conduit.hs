@@ -29,7 +29,7 @@ import Data.MessagePack ( Packable )
 
 -- | Stream all incoming pair ( label, data ) to the given Fluent.
 --
--- Since 0.1.0.0
+-- Since 0.2.0.0
 --
 sinkFluent :: (MonadResource m, Packable a) => FluentSettings -> Consumer (ByteString, a) m ()
 sinkFluent set = bracketP
@@ -39,7 +39,7 @@ sinkFluent set = bracketP
 
 -- | Stream all incoming pair ( label, data ) to the given Fluent logger.
 --
--- Since 0.1.0.0
+-- Since 0.2.0.0
 --
 sinkFluentWithLogger :: (MonadResource m, Packable a) => FluentLogger -> Consumer (ByteString, a) m ()
 sinkFluentWithLogger logger = awaitForever $ liftIO . uncurry (post logger)
