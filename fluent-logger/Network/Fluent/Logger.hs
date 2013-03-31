@@ -14,7 +14,7 @@
 -- limitations under the License.
 --
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DoRec #-}
+{-# LANGUAGE RecursiveDo #-}
 -- | Fluent Logger for Haskell
 module Network.Fluent.Logger
     ( -- * Logger
