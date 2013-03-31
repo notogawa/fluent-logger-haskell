@@ -13,7 +13,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 --
-
+{-# LANGUAGE RankNTypes #-}
 -- | Fluent Logger with Conduit Interface
 module Network.Fluent.Conduit
     ( -- * Sinks
