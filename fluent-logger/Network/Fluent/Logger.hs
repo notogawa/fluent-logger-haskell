@@ -14,7 +14,13 @@
 -- limitations under the License.
 --
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
+#if __GLASGOW_HASKELL__ < 706
+{-# LANGUAGE DoRec #-}
+#else
 {-# LANGUAGE RecursiveDo #-}
+#endif
+
 -- | Fluent Logger for Haskell
 module Network.Fluent.Logger
     ( -- * Logger
