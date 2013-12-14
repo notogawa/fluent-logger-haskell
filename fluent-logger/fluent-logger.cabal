@@ -17,6 +17,7 @@ source-repository head
   location:            https://github.com/notogawa/fluent-logger-haskell.git
 
 library
+  hs-source-dirs:      src
   exposed-modules:     Network.Fluent.Logger
   ghc-options:         -Wall
   build-depends:       base ==4.*
@@ -26,6 +27,7 @@ library
                      , time
                      , msgpack >=0.7.1 && <0.8
                      , stm >=2.3
+                     , random
 
 test-suite fluent-logger-spec
   hs-source-dirs:      test

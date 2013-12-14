@@ -45,7 +45,7 @@ import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
 import Network.Socket.ByteString.Lazy ( sendAll )
 import Control.Monad ( void, forever, when )
 import Control.Applicative ( (<$>) )
-import Control.Concurrent ( ThreadId, forkIO, killThread )
+import Control.Concurrent ( ThreadId, forkIO, killThread, threadDelay )
 import Control.Concurrent.STM ( atomically
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar )
@@ -53,6 +53,7 @@ import Control.Exception ( SomeException, handle, bracket, throwIO )
 import Data.MessagePack ( Packable, pack )
 import Data.Int ( Int64 )
 import Data.Time.Clock.POSIX ( getPOSIXTime )
+import System.Random ( randomRIO )
 
 -- | Fluent logger settings
 --
@@ -112,13 +113,21 @@ sender :: FluentLogger -> IO ()
 sender logger = forever $ connectFluent logger >>= sendFluent logger
 
 connectFluent :: FluentLogger -> IO NS.Socket
-connectFluent logger = handle (retry logger) (getSocket host port timeout)
+connectFluent logger = exponentialBackoff $ getSocket host port timeout
     where
       host = fluentSettingsHost $ fluentLoggerSettings logger
       port = fluentSettingsPort $ fluentLoggerSettings logger
       timeout = round $ fluentSettingsTimeout (fluentLoggerSettings logger) * 1000000
-      retry :: FluentLogger -> SomeException -> IO NS.Socket
-      retry = const . connectFluent
+
+exponentialBackoff :: IO a -> IO a
+exponentialBackoff action = handle (retry 100000) action where
+    retry failCount exception =
+        let _ = exception :: SomeException
+        in exponentialBackoff' failCount
+    exponentialBackoff' interval = do
+      delay <- randomRIO (interval `div` 2, interval * 3 `div` 2)
+      threadDelay delay
+      handle (retry $ min 60000000 $ interval * 3 `div` 2) action
 
 sendFluent :: FluentLogger -> NS.Socket -> IO ()
 sendFluent logger sock = handle (done sock) $ do

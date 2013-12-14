@@ -1,1 +1,1 @@
-{-# OPTIONS_GHC -F -pgmF cabal-dev/bin/hspec-discover #-}
+{-# OPTIONS_GHC -F -pgmF hspec-discover #-}
