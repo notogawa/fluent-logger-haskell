@@ -13,13 +13,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 --
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE CPP #-}
-#if __GLASGOW_HASKELL__ < 706
-{-# LANGUAGE DoRec #-}
-#else
-{-# LANGUAGE RecursiveDo #-}
-#endif
 
 -- | Fluent Logger for Haskell
 module Network.Fluent.Logger
@@ -36,9 +29,8 @@ module Network.Fluent.Logger
     , postWithTime
     ) where
 
-import qualified Data.ByteString as BS
-import Data.ByteString.Char8 ( unpack )
-import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Char8 as BS ( ByteString, pack, unpack , empty, null )
+import qualified Data.ByteString.Lazy as LBS ( ByteString, length )
 import Data.Monoid ( mconcat )
 import qualified Network.Socket as NS
 import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
@@ -76,7 +68,7 @@ defaultFluentSettings :: FluentSettings
 defaultFluentSettings =
     FluentSettings
     { fluentSettingsTag = BS.empty
-    , fluentSettingsHost = "localhost"
+    , fluentSettingsHost = BS.pack "localhost"
     , fluentSettingsPort = 24224
     , fluentSettingsTimeout = 3.0
     , fluentSettingsBufferLimit = 1024*1024
@@ -88,10 +80,15 @@ defaultFluentSettings =
 --
 data FluentLogger =
     FluentLogger
-    { fluentLoggerChan :: TChan LBS.ByteString
-    , fluentLoggerBuffered :: TVar Int64
-    , fluentLoggerSettings :: FluentSettings
+    { fluentLoggerSender :: FluentLoggerSender
     , fluentLoggerThread :: ThreadId
+    }
+
+data FluentLoggerSender =
+    FluentLoggerSender
+    { fluentLoggerSenderChan :: TChan LBS.ByteString
+    , fluentLoggerSenderBuffered :: TVar Int64
+    , fluentLoggerSenderSettings :: FluentSettings
     }
 
 getSocket :: BS.ByteString -> Int -> Int64 -> IO NS.Socket
@@ -99,7 +96,7 @@ getSocket host port timeout = do
   let hints = NS.defaultHints { NS.addrFlags = [NS.AI_ADDRCONFIG]
                               , NS.addrSocketType = NS.Stream
                               }
-  (addr:_) <- NS.getAddrInfo (Just hints) (Just $ unpack host) (Just $ show port)
+  (addr:_) <- NS.getAddrInfo (Just hints) (Just $ BS.unpack host) (Just $ show port)
   sock <- NS.socket (NS.addrFamily addr) (NS.addrSocketType addr) (NS.addrProtocol addr)
   setRecvTimeout sock timeout
   setSendTimeout sock timeout
@@ -109,15 +106,15 @@ getSocket host port timeout = do
     NS.connect sock $ NS.addrAddress addr
     return sock
 
-sender :: FluentLogger -> IO ()
-sender logger = forever $ connectFluent logger >>= sendFluent logger
+runSender :: FluentLoggerSender -> IO ()
+runSender logger = forever $ connectFluent logger >>= sendFluent logger
 
-connectFluent :: FluentLogger -> IO NS.Socket
-connectFluent logger = exponentialBackoff $ getSocket host port timeout
-    where
-      host = fluentSettingsHost $ fluentLoggerSettings logger
-      port = fluentSettingsPort $ fluentLoggerSettings logger
-      timeout = round $ fluentSettingsTimeout (fluentLoggerSettings logger) * 1000000
+connectFluent :: FluentLoggerSender -> IO NS.Socket
+connectFluent logger = exponentialBackoff $ getSocket host port timeout where
+    set = fluentLoggerSenderSettings logger
+    host = fluentSettingsHost set
+    port = fluentSettingsPort set
+    timeout = round $ fluentSettingsTimeout set * 1000000
 
 exponentialBackoff :: IO a -> IO a
 exponentialBackoff action = handle (retry 100000) action where
@@ -129,19 +126,19 @@ exponentialBackoff action = handle (retry 100000) action where
       threadDelay delay
       handle (retry $ min 60000000 $ interval * 3 `div` 2) action
 
-sendFluent :: FluentLogger -> NS.Socket -> IO ()
-sendFluent logger sock = handle (done sock) $ do
-                           entry <- atomically $ peekTChan chan
-                           sendAll sock entry
-                           atomically $ do
-                             void $ readTChan chan
-                             modifyTVar buffered (subtract $ LBS.length entry)
-                           sendFluent logger sock
-    where
-      chan = fluentLoggerChan logger
-      buffered = fluentLoggerBuffered logger
-      done :: NS.Socket -> SomeException -> IO ()
-      done = const . NS.sClose
+sendFluent :: FluentLoggerSender -> NS.Socket -> IO ()
+sendFluent logger sock = handle (done sock) toSender where
+    chan = fluentLoggerSenderChan logger
+    buffered = fluentLoggerSenderBuffered logger
+    done :: NS.Socket -> SomeException -> IO ()
+    done = const . NS.sClose
+    toSender = do
+      entry <- atomically $ peekTChan chan
+      sendAll sock entry
+      atomically $ do
+        void $ readTChan chan
+        modifyTVar buffered (subtract $ LBS.length entry)
+      sendFluent logger sock
 
 -- | Create a fluent logger
 --
@@ -151,12 +148,16 @@ newFluentLogger :: FluentSettings -> IO FluentLogger
 newFluentLogger set = do
   tchan <- newTChanIO
   tvar <- newTVarIO 0
-  let mkLogger tid = FluentLogger { fluentLoggerChan = tchan
-                                  , fluentLoggerBuffered = tvar
-                                  , fluentLoggerSettings = set
-                                  , fluentLoggerThread = tid
-                                  }
-  rec logger <- mkLogger <$> forkIO (sender logger)
+  let sender = FluentLoggerSender
+               { fluentLoggerSenderChan = tchan
+               , fluentLoggerSenderBuffered = tvar
+               , fluentLoggerSenderSettings = set
+               }
+  tid <- forkIO $ runSender sender
+  let logger = FluentLogger
+               { fluentLoggerSender = sender
+               , fluentLoggerThread = tid
+               }
   return logger
 
 -- | Close logger
@@ -190,16 +191,18 @@ post logger label obj = do
 -- Since 0.1.0.0
 --
 postWithTime :: Packable a => FluentLogger -> BS.ByteString -> Int -> a -> IO ()
-postWithTime logger label time obj = atomically $ do
-                                       s <- readTVar buffered
-                                       when (s + len <= limit) $ do
-                                         writeTChan chan entry
-                                         modifyTVar buffered (+ len)
-  where
-    tag = fluentSettingsTag $ fluentLoggerSettings logger
-    lbl = if BS.null label then tag else mconcat [ tag, ".", label ]
+postWithTime logger label time obj = atomically send where
+    sender = fluentLoggerSender logger
+    set = fluentLoggerSenderSettings sender
+    tag = fluentSettingsTag set
+    lbl = if BS.null label then tag else mconcat [ tag, BS.pack ".", label ]
     entry = pack ( lbl, time, obj )
     len = LBS.length entry
-    chan = fluentLoggerChan logger
-    buffered = fluentLoggerBuffered logger
-    limit = fluentSettingsBufferLimit $ fluentLoggerSettings logger
+    chan = fluentLoggerSenderChan sender
+    buffered = fluentLoggerSenderBuffered sender
+    limit = fluentSettingsBufferLimit set
+    send = do
+      s <- readTVar buffered
+      when (s + len <= limit) $ do
+        writeTChan chan entry
+        modifyTVar buffered (+ len)
