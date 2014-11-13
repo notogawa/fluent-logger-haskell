@@ -29,7 +29,7 @@ module Network.Fluent.Logger
     , postWithTime
     ) where
 
-import qualified Data.ByteString.Char8 as BS ( ByteString, pack, unpack , empty, null )
+import qualified Data.ByteString.Char8 as BS ( ByteString, pack, unpack, empty, null)
 import qualified Data.ByteString.Lazy as LBS ( ByteString, length )
 import Data.Monoid ( mconcat )
 import qualified Network.Socket as NS
@@ -42,10 +42,13 @@ import Control.Concurrent.STM ( atomically
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar )
 import Control.Exception ( SomeException, handle, bracket, throwIO )
-import Data.MessagePack ( Packable, pack )
+import Data.MessagePack
+import Data.Serialize hiding (label)
 import Data.Int ( Int64 )
 import Data.Time.Clock.POSIX ( getPOSIXTime )
 import System.Random ( randomRIO )
+
+import Network.Fluent.Logger.Internal
 
 -- | Fluent logger settings
 --
@@ -190,13 +193,13 @@ post logger label obj = do
 --
 -- Since 0.1.0.0
 --
-postWithTime :: Packable a => FluentLogger -> BS.ByteString -> Int -> a -> IO ()
+postWithTime :: (Packable a) => FluentLogger -> BS.ByteString -> Int -> a -> IO ()
 postWithTime logger label time obj = atomically send where
     sender = fluentLoggerSender logger
     set = fluentLoggerSenderSettings sender
     tag = fluentSettingsTag set
     lbl = if BS.null label then tag else mconcat [ tag, BS.pack ".", label ]
-    entry = pack ( lbl, time, obj )
+    entry = encodeLazy $ ObjectArray [ObjectBinary lbl, ObjectInt (fromIntegral time), pack obj]
     len = LBS.length entry
     chan = fluentLoggerSenderChan sender
     buffered = fluentLoggerSenderBuffered sender
