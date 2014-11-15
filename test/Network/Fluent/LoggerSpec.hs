@@ -71,7 +71,7 @@ postBuffersMessageIfServerDown =
         post logger label ( 2 :: Int )
         (_, _, content) <- recvMockServer server :: IO (ByteString, Int, Int)
         content `shouldBe` 1
-        (_, _, content) <- recvMockServer server
+        (_, _, content) <- recvMockServer server :: IO (ByteString, Int, Int)
         content `shouldBe` 2
 
 postBuffersMessageIfLostConnection :: IO ()
