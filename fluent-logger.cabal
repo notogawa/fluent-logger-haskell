@@ -20,7 +20,7 @@ source-repository head
 library
   hs-source-dirs:      src
   exposed-modules:     Network.Fluent.Logger
-                     , Network.Fluent.Logger.Internal
+                     , Network.Fluent.Logger.Packable
   ghc-options:         -Wall
   build-depends:       base ==4.*
                      , bytestring
@@ -42,8 +42,10 @@ test-suite fluent-logger-spec
   main-is:             Spec.hs
   other-modules:       MockServer
                      , Network.Fluent.LoggerSpec
+                     , Network.Fluent.Logger.Unpackable
   build-depends:       base ==4.*
                      , fluent-logger
+                     , text
                      , network
                      , messagepack
                      , conduit
@@ -56,6 +58,7 @@ test-suite fluent-logger-spec
                      , cereal
                      , cereal-conduit
                      , exceptions
+                     , containers
   default-language:    Haskell2010
 
 benchmark fluent-logger-benchmark

@@ -20,7 +20,8 @@ import Data.Serialize (Serialize, get)
 import Data.MessagePack
 import Data.Monoid
 
-import Network.Fluent.Logger.Internal (Unpackable, pack, unpack)
+import Network.Fluent.Logger.Packable (pack)
+import Network.Fluent.Logger.Unpackable (Unpackable, unpack)
 
 data MockServer a = MockServer { mockServerChan :: Chan a
                                , mockServerThread :: ThreadId

@@ -48,7 +48,7 @@ import Data.Int ( Int64 )
 import Data.Time.Clock.POSIX ( getPOSIXTime )
 import System.Random ( randomRIO )
 
-import Network.Fluent.Logger.Internal
+import Network.Fluent.Logger.Packable
 
 -- | Fluent logger settings
 --
@@ -182,7 +182,7 @@ getCurrentEpochTime = round <$> getPOSIXTime
 
 -- | Post a message.
 --
--- Since 0.1.0.0
+-- Since 0.2.0.0
 --
 post :: Packable a => FluentLogger -> BS.ByteString -> a -> IO ()
 post logger label obj = do
@@ -191,9 +191,9 @@ post logger label obj = do
 
 -- | Post a message with given time.
 --
--- Since 0.1.0.0
+-- Since 0.2.0.0
 --
-postWithTime :: (Packable a) => FluentLogger -> BS.ByteString -> Int -> a -> IO ()
+postWithTime :: Packable a => FluentLogger -> BS.ByteString -> Int -> a -> IO ()
 postWithTime logger label time obj = atomically send where
     sender = fluentLoggerSender logger
     set = fluentLoggerSenderSettings sender
