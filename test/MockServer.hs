@@ -6,6 +6,7 @@ module MockServer
     , mockServerPort
     , withMockServer
     , recvMockServer
+    , getConnectionCount
     ) where
 
 import Data.Conduit
@@ -25,6 +26,7 @@ import Network.Fluent.Logger.Unpackable (Unpackable, unpack)
 
 data MockServer a = MockServer { mockServerChan :: Chan a
                                , mockServerThread :: ThreadId
+                               , mockServerConnectionCount :: MVar Int
                                }
 
 mockServerHost :: ByteString
@@ -36,15 +38,17 @@ mockServerPort = 24224
 mockServerSettings :: ServerSettings
 mockServerSettings = serverSettings mockServerPort "*"
 
-app :: (MonadIO m, MonadThrow m, Serialize a) => Chan a -> AppData -> m ()
-app chan ad = appSource ad $= conduitGet get $$ sinkChan chan
+app :: (MonadIO m, MonadThrow m, Serialize a) => Chan a -> MVar Int -> AppData -> m ()
+app chan mvconn ad = do
+  liftIO $ modifyMVar_ mvconn (return . (+ 1))
+  appSource ad $= conduitGet get $$ sinkChan chan mvconn
 
-sinkChan :: (MonadIO m, Serialize a) => Chan a -> Sink a m ()
-sinkChan chan = do
+sinkChan :: (MonadIO m, Serialize a) => Chan a -> MVar Int -> Sink a m ()
+sinkChan chan mvconn = do
   mx <- await
   case mx of
-    Nothing -> return ()
-    Just x  -> liftIO (writeChan chan x) >> sinkChan chan
+    Nothing -> liftIO $ modifyMVar_ mvconn (return . (subtract 1))
+    Just x  -> liftIO (writeChan chan x) >> sinkChan chan mvconn
 
 withMockServer :: Serialize a => (MockServer a -> IO ()) -> IO ()
 withMockServer = bracket runMockServer stopMockServer
@@ -55,13 +59,18 @@ recvMockServer server = fmap unpack $ readChan (mockServerChan server)
 runMockServer :: Serialize a => IO (MockServer a)
 runMockServer = do
   chan <- newChan
-  tid <- forkIO $ runTCPServer mockServerSettings $ app chan
+  mvconn <- newMVar 0
+  tid <- forkIO $ runTCPServer mockServerSettings $ app chan mvconn
   threadDelay 10000
   return MockServer { mockServerChan = chan
                     , mockServerThread = tid
+                    , mockServerConnectionCount = mvconn
                     }
 
 stopMockServer :: Serialize a => MockServer a -> IO ()
 stopMockServer server = do
   killThread $ mockServerThread server
   threadDelay 10000
+
+getConnectionCount :: MockServer a -> IO Int
+getConnectionCount = readMVar . mockServerConnectionCount
