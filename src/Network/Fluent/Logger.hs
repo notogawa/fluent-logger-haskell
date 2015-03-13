@@ -13,7 +13,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 --
-
+{-# LANGUAGE CPP #-}
 -- | Fluent Logger for Haskell
 module Network.Fluent.Logger
     ( -- * Logger
@@ -49,6 +49,14 @@ import Data.Time.Clock.POSIX ( getPOSIXTime )
 import System.Random ( randomRIO )
 
 import Network.Fluent.Logger.Packable
+
+-- | Wrap close / sClose (deprecated)
+close :: NS.Socket -> IO ()
+#if MIN_VERSION_network(2,4,0)
+close = NS.close
+#else
+close = NS.sClose
+#endif
 
 -- | Fluent logger settings
 --
@@ -104,13 +112,13 @@ getSocket host port timeout = do
   setRecvTimeout sock timeout
   setSendTimeout sock timeout
   let onErr :: SomeException -> IO a
-      onErr e = NS.sClose sock >> throwIO e
+      onErr e = close sock >> throwIO e
   handle onErr $ do
     NS.connect sock $ NS.addrAddress addr
     return sock
 
 runSender :: FluentLoggerSender -> IO ()
-runSender logger = forever $ bracket (connectFluent logger) NS.sClose (sendFluent logger)
+runSender logger = forever $ bracket (connectFluent logger) close (sendFluent logger)
 
 connectFluent :: FluentLoggerSender -> IO NS.Socket
 connectFluent logger = exponentialBackoff $ getSocket host port timeout where
