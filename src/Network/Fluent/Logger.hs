@@ -110,7 +110,7 @@ getSocket host port timeout = do
     return sock
 
 runSender :: FluentLoggerSender -> IO ()
-runSender logger = forever $ connectFluent logger >>= sendFluent logger
+runSender logger = forever $ bracket (connectFluent logger) NS.sClose (sendFluent logger)
 
 connectFluent :: FluentLoggerSender -> IO NS.Socket
 connectFluent logger = exponentialBackoff $ getSocket host port timeout where
@@ -130,11 +130,9 @@ exponentialBackoff action = handle (retry 100000) action where
       handle (retry $ min 60000000 $ interval * 3 `div` 2) action
 
 sendFluent :: FluentLoggerSender -> NS.Socket -> IO ()
-sendFluent logger sock = handle (done sock) toSender where
+sendFluent logger sock = toSender where
     chan = fluentLoggerSenderChan logger
     buffered = fluentLoggerSenderBuffered logger
-    done :: NS.Socket -> SomeException -> IO ()
-    done = const . NS.sClose
     toSender = do
       entry <- atomically $ peekTChan chan
       sendAll sock entry

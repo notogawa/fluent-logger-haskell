@@ -22,6 +22,8 @@ spec = do
     -- it "losts message if buffer is over" postLostsMessageIfBufferIsOver
   describe "postWithTime" $ do
     it "posts a message with given time" postWithTimePostsMessageWithGivenTime
+  describe "withFluentLogger" $ do
+    it "disconnects when the scope is over" withFluentLoggerDisconnect
 
 
 postSettings =
@@ -110,3 +112,18 @@ postWithTimePostsMessageWithGivenTime =
         tag `shouldBe` "postWithTime.PostsMessageWithGivenTime"
         time `shouldBe` 123456
         content `shouldBe` "test"
+
+withFluentLoggerDisconnect :: IO ()
+withFluentLoggerDisconnect =
+  withMockServer $ \server -> do
+    server `shouldHaveConns` 0
+    withFluentLogger postSettings $ \logger -> do
+      post logger "hoge" ("foobar" :: String)
+      (tag, time, content) <- recvMockServer server :: IO (ByteString, Int, String)
+      server `shouldHaveConns` 1
+      tag `shouldBe` "post.hoge"
+      content `shouldBe` "foobar"
+    threadDelay 5000
+    server `shouldHaveConns` 0
+  where
+    shouldHaveConns server exp = getConnectionCount server >>= (`shouldBe` exp)
