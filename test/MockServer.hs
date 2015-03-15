@@ -20,13 +20,14 @@ import Control.Exception
 import Data.Serialize (Serialize, get)
 import Data.MessagePack
 import Data.Monoid
+import qualified Data.Set as S
 
 import Network.Fluent.Logger.Packable (pack)
 import Network.Fluent.Logger.Unpackable (Unpackable, unpack)
 
 data MockServer a = MockServer { mockServerChan :: Chan a
                                , mockServerThread :: ThreadId
-                               , mockServerConnectionCount :: MVar Int
+                               , mockServerConnectionThreads :: MVar (S.Set ThreadId)
                                }
 
 mockServerHost :: ByteString
@@ -38,17 +39,19 @@ mockServerPort = 24224
 mockServerSettings :: ServerSettings
 mockServerSettings = serverSettings mockServerPort "*"
 
-app :: (MonadIO m, MonadThrow m, Serialize a) => Chan a -> MVar Int -> AppData -> m ()
+app :: (MonadIO m, MonadThrow m, Serialize a) => Chan a -> MVar (S.Set ThreadId) -> AppData -> m ()
 app chan mvconn ad = do
-  liftIO $ modifyMVar_ mvconn (return . (+ 1))
-  appSource ad $= conduitGet get $$ sinkChan chan mvconn
+  myid <- liftIO myThreadId
+  liftIO $ modifyMVar_ mvconn (return . S.insert myid)
+  appSource ad $= conduitGet get $$ (addCleanup (unregister myid) $ sinkChan chan) where
+    unregister myid _ = liftIO $ modifyMVar_ mvconn (return . S.delete myid)
 
-sinkChan :: (MonadIO m, Serialize a) => Chan a -> MVar Int -> Sink a m ()
-sinkChan chan mvconn = do
+sinkChan :: (MonadIO m, Serialize a) => Chan a -> Sink a m ()
+sinkChan chan = do
   mx <- await
   case mx of
-    Nothing -> liftIO $ modifyMVar_ mvconn (return . (subtract 1))
-    Just x  -> liftIO (writeChan chan x) >> sinkChan chan mvconn
+    Nothing -> return ()
+    Just x  -> liftIO (writeChan chan x) >> sinkChan chan
 
 withMockServer :: Serialize a => (MockServer a -> IO ()) -> IO ()
 withMockServer = bracket runMockServer stopMockServer
@@ -59,12 +62,12 @@ recvMockServer server = fmap unpack $ readChan (mockServerChan server)
 runMockServer :: Serialize a => IO (MockServer a)
 runMockServer = do
   chan <- newChan
-  mvconn <- newMVar 0
+  mvconn <- newMVar S.empty
   tid <- forkIO $ runTCPServer mockServerSettings $ app chan mvconn
   threadDelay 10000
   return MockServer { mockServerChan = chan
                     , mockServerThread = tid
-                    , mockServerConnectionCount = mvconn
+                    , mockServerConnectionThreads = mvconn
                     }
 
 stopMockServer :: Serialize a => MockServer a -> IO ()
@@ -73,4 +76,4 @@ stopMockServer server = do
   threadDelay 10000
 
 getConnectionCount :: MockServer a -> IO Int
-getConnectionCount = readMVar . mockServerConnectionCount
+getConnectionCount s = fmap S.size $ readMVar $ mockServerConnectionThreads s
