@@ -18,7 +18,7 @@ spec = do
     it "posts a message" postPostsMessage
     it "keeps message order" postKeepsMessageOrder
     it "buffers message if server down" postBuffersMessageIfServerDown
-    -- it "buffers message if lost connection" postBuffersMessageIfLostConnection
+    it "buffers message if lost connection" postBuffersMessageIfLostConnection
     -- it "losts message if buffer is over" postLostsMessageIfBufferIsOver
   describe "postWithTime" $ do
     it "posts a message with given time" postWithTimePostsMessageWithGivenTime
@@ -40,6 +40,9 @@ postWithTimeSettings =
 
 getCurrentEpochTime :: IO Int
 getCurrentEpochTime = round <$> getPOSIXTime
+
+shouldHaveConns :: MockServer a -> Int -> IO ()
+shouldHaveConns server exp = getConnectionCount server >>= (`shouldBe` exp)
 
 postPostsMessage :: IO ()
 postPostsMessage =
@@ -84,13 +87,16 @@ postBuffersMessageIfLostConnection =
         post logger label ( 1 :: Int )
         (_, _, content) <- recvMockServer server :: IO (ByteString, Int, Int)
         content `shouldBe` 1
+        server `shouldHaveConns` 1
       post logger label ( 2 :: Int )
       withMockServer $ \server -> do
         post logger label ( 3 :: Int )
         (_, _, content) <- recvMockServer server :: IO (ByteString, Int, Int)
         content `shouldBe` 2
+        server `shouldHaveConns` 1
         (_, _, content) <- recvMockServer server :: IO (ByteString, Int, Int)
         content `shouldBe` 3
+        server `shouldHaveConns` 1
 
 postLostsMessageIfBufferIsOver :: IO ()
 postLostsMessageIfBufferIsOver =
@@ -125,5 +131,4 @@ withFluentLoggerDisconnect =
       content `shouldBe` "foobar"
     threadDelay 5000
     server `shouldHaveConns` 0
-  where
-    shouldHaveConns server exp = getConnectionCount server >>= (`shouldBe` exp)
+    
