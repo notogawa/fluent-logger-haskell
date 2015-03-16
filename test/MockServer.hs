@@ -73,7 +73,7 @@ runMockServer = do
 stopMockServer :: Serialize a => MockServer a -> IO ()
 stopMockServer server = do
   killThread $ mockServerThread server
-  (mapM_ killThread . S.toList) =<< (readMVar $ mockServerConnectionThreads server)
+  (mapM_ killThread . S.toList) =<< (swapMVar (mockServerConnectionThreads server) S.empty)
   threadDelay 10000
 
 getConnectionCount :: MockServer a -> IO Int
