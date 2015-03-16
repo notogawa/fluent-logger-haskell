@@ -34,14 +34,15 @@ import qualified Data.ByteString.Lazy as LBS ( ByteString, length )
 import Data.Monoid ( mconcat )
 import qualified Network.Socket as NS
 import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
-import Network.Socket.ByteString.Lazy ( sendAll )
+import Network.Socket.ByteString.Lazy ( sendAll, recv )
 import Control.Monad ( void, forever, when )
 import Control.Applicative ( (<$>) )
 import Control.Concurrent ( ThreadId, forkIO, killThread, threadDelay )
-import Control.Concurrent.STM ( atomically
+import Control.Concurrent.STM ( atomically, orElse
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
-                              , TVar, newTVarIO, readTVar, modifyTVar )
-import Control.Exception ( SomeException, AsyncException, Handler(Handler), handle, bracket, throwIO, catches )
+                              , TVar, newTVarIO, readTVar, modifyTVar
+                              , TMVar, tryPutTMVar, newEmptyTMVarIO, takeTMVar )
+import Control.Exception ( SomeException, AsyncException, Handler(Handler), handle, bracket, throwIO, catches, onException )
 import Data.MessagePack
 import Data.Serialize hiding (label)
 import Data.Int ( Int64 )
@@ -117,14 +118,28 @@ getSocket host port timeout = do
     NS.connect sock $ NS.addrAddress addr
     return sock
 
+type CloseFlag = TMVar ()
+
+setFlagWhenClose :: NS.Socket -> CloseFlag -> IO ()
+setFlagWhenClose sock flag = do
+  received <- recv sock 256 `onException` setFlag
+  if LBS.length received == 0
+    then setFlag
+    else setFlagWhenClose sock flag
+  where
+    setFlag = atomically $ void $ tryPutTMVar flag ()
+
 runSender :: FluentLoggerSender -> IO ()
-runSender logger = forever $ filterException $ bracket (connectFluent logger) close (sendFluent logger) where
+runSender logger = forever $ filterException $ bracket (connectFluent logger) close handleSocket where
   passAsyncException :: AsyncException -> IO a
   passAsyncException e = throwIO e
   dropOtherExceptions :: SomeException -> IO ()
   dropOtherExceptions _ = return ()
   filterException :: IO () -> IO ()
   filterException action = catches action [Handler passAsyncException, Handler dropOtherExceptions]
+  handleSocket sock = do
+    flag <- newEmptyTMVarIO
+    bracket (forkIO $ setFlagWhenClose sock flag) killThread (const $ sendFluent logger sock flag)
 
 connectFluent :: FluentLoggerSender -> IO NS.Socket
 connectFluent logger = exponentialBackoff $ getSocket host port timeout where
@@ -143,17 +158,24 @@ exponentialBackoff action = handle (retry 100000) action where
       threadDelay delay
       handle (retry $ min 60000000 $ interval * 3 `div` 2) action
 
-sendFluent :: FluentLoggerSender -> NS.Socket -> IO ()
-sendFluent logger sock = toSender where
+
+data SenderEvent = SenderNewData LBS.ByteString
+                 | SenderSocketClose
+
+sendFluent :: FluentLoggerSender -> NS.Socket -> CloseFlag -> IO ()
+sendFluent logger sock flag = toSender where
     chan = fluentLoggerSenderChan logger
     buffered = fluentLoggerSenderBuffered logger
     toSender = do
-      entry <- atomically $ peekTChan chan
-      sendAll sock entry
-      atomically $ do
-        void $ readTChan chan
-        modifyTVar buffered (subtract $ LBS.length entry)
-      sendFluent logger sock
+      event <- atomically $ (takeTMVar flag >> return SenderSocketClose) `orElse` (fmap SenderNewData $ peekTChan chan)
+      case event of
+        SenderSocketClose -> return ()
+        SenderNewData entry -> do
+          sendAll sock entry
+          atomically $ do
+            void $ readTChan chan
+            modifyTVar buffered (subtract $ LBS.length entry)
+          sendFluent logger sock flag
 
 -- | Create a fluent logger
 --
