@@ -41,7 +41,7 @@ import Control.Concurrent ( ThreadId, forkIO, killThread, threadDelay )
 import Control.Concurrent.STM ( atomically
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar )
-import Control.Exception ( SomeException, handle, bracket, throwIO )
+import Control.Exception ( SomeException, AsyncException, Handler(Handler), handle, bracket, throwIO, catches )
 import Data.MessagePack
 import Data.Serialize hiding (label)
 import Data.Int ( Int64 )
@@ -118,7 +118,13 @@ getSocket host port timeout = do
     return sock
 
 runSender :: FluentLoggerSender -> IO ()
-runSender logger = forever $ bracket (connectFluent logger) close (sendFluent logger)
+runSender logger = forever $ filterException $ bracket (connectFluent logger) close (sendFluent logger) where
+  passAsyncException :: AsyncException -> IO a
+  passAsyncException e = throwIO e
+  dropOtherExceptions :: SomeException -> IO ()
+  dropOtherExceptions _ = return ()
+  filterException :: IO () -> IO ()
+  filterException action = catches action [Handler passAsyncException, Handler dropOtherExceptions]
 
 connectFluent :: FluentLoggerSender -> IO NS.Socket
 connectFluent logger = exponentialBackoff $ getSocket host port timeout where
