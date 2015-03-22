@@ -37,7 +37,7 @@ import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
 import Network.Socket.ByteString.Lazy ( sendAll, recv )
 import Control.Monad ( void, forever, when )
 import Control.Applicative ( (<$>) )
-import Control.Concurrent ( ThreadId, forkIO, killThread, threadDelay )
+import Control.Concurrent ( ThreadId, forkIOWithUnmask, killThread, threadDelay )
 import Control.Concurrent.STM ( atomically, orElse
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar
@@ -58,6 +58,9 @@ close = NS.close
 #else
 close = NS.sClose
 #endif
+
+forkIOUnmasked :: IO () -> IO ThreadId
+forkIOUnmasked action = forkIOWithUnmask (\unmask -> unmask action)
 
 -- | Fluent logger settings
 --
@@ -139,7 +142,7 @@ runSender logger = forever $ filterException $ bracket (connectFluent logger) cl
   filterException action = catches action [Handler passAsyncException, Handler dropOtherExceptions]
   handleSocket sock = do
     flag <- newEmptyTMVarIO
-    bracket (forkIO $ setFlagWhenClose sock flag) killThread (const $ sendFluent logger sock flag)
+    bracket (forkIOUnmasked $ setFlagWhenClose sock flag) killThread (const $ sendFluent logger sock flag)
 
 connectFluent :: FluentLoggerSender -> IO NS.Socket
 connectFluent logger = exponentialBackoff $ getSocket host port timeout where
@@ -190,7 +193,7 @@ newFluentLogger set = do
                , fluentLoggerSenderBuffered = tvar
                , fluentLoggerSenderSettings = set
                }
-  tid <- forkIO $ runSender sender
+  tid <- forkIOUnmasked $ runSender sender
   let logger = FluentLogger
                { fluentLoggerSender = sender
                , fluentLoggerThread = tid
