@@ -37,7 +37,7 @@ import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
 import Network.Socket.ByteString.Lazy ( sendAll, recv )
 import Control.Monad ( void, forever, when )
 import Control.Applicative ( (<$>) )
-import Control.Concurrent ( ThreadId, forkIOWithUnmask, killThread, threadDelay )
+import Control.Concurrent ( ThreadId, killThread, threadDelay )
 import Control.Concurrent.STM ( atomically, orElse
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
                               , TVar, newTVarIO, readTVar, modifyTVar
@@ -50,6 +50,7 @@ import Data.Time.Clock.POSIX ( getPOSIXTime )
 import System.Random ( randomRIO )
 
 import Network.Fluent.Logger.Packable
+import Network.Fluent.Logger.ForkWrapper (forkIOUnmasked)
 
 -- | Wrap close / sClose (deprecated)
 close :: NS.Socket -> IO ()
@@ -58,9 +59,6 @@ close = NS.close
 #else
 close = NS.sClose
 #endif
-
-forkIOUnmasked :: IO () -> IO ThreadId
-forkIOUnmasked action = forkIOWithUnmask (\unmask -> unmask action)
 
 -- | Fluent logger settings
 --
