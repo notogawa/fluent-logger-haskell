@@ -24,6 +24,7 @@ spec = do
     it "posts a message with given time" postWithTimePostsMessageWithGivenTime
   describe "withFluentLogger" $ do
     it "disconnects when the scope is over" withFluentLoggerDisconnect
+    it "exits normally even if you don't wait for the message to be received" withFluentLoggerExit
 
 
 postSettings =
@@ -131,4 +132,12 @@ withFluentLoggerDisconnect =
       content `shouldBe` "foobar"
     threadDelay 5000
     server `shouldHaveConns` 0
-    
+
+withFluentLoggerExit :: IO ()
+withFluentLoggerExit =
+  (withMockServer :: (MockServer Object -> IO ()) -> IO ()) $ \server -> do
+    withFluentLogger postSettings $ \logger -> do
+      post logger "hoge" ("foobar" :: String)
+      -- immediately exit the block without waiting for the message
+    threadDelay 5000
+    server `shouldHaveConns` 0
