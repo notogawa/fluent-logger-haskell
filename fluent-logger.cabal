@@ -1,5 +1,5 @@
 name:                fluent-logger
-version:             0.2.2.0
+version:             0.2.3.0
 synopsis:            A structured logger for Fluentd (Haskell)
 description:         A structured logger for Fluentd (Haskell) <http://fluentd.org/>
 license:             Apache-2.0
