@@ -21,6 +21,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Network.Fluent.Logger
                      , Network.Fluent.Logger.Packable
+  other-modules:       Network.Fluent.Logger.ForkWrapper
   ghc-options:         -Wall
   build-depends:       base ==4.*
                      , bytestring
