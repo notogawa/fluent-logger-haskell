@@ -11,6 +11,9 @@ env:
   # - HPVER=2012.4.0.0
   # - HPVER=2013.2.0.0
   # - HPVER=2014.2.0.0
+  - STACKAGEVER=lts/1
+  - STACKAGEVER=lts/2
+  - STACKAGEVER=nightly
   - CABALVER=1.16 GHCVER=7.4.1
   - CABALVER=1.16 GHCVER=7.4.2
   - CABALVER=1.16 GHCVER=7.6.1
@@ -24,11 +27,39 @@ env:
 
 matrix:
   allow_failures:
+    - env: STACKAGEVER=nightly
     - env: CABALVER=head GHCVER=head
 
 # Note: the distinction between `before_install` and `install` is not
 #       important.
 before_install:
+  - case "$STACKAGEVER" in
+     "") ;;
+
+     "lts/1")
+       export CABALVER=1.18 ;
+       export GHCVER=7.8.4 ;
+       echo "http://www.stackage.org/$STACKAGEVER/cabal.config" ;
+       wget -O cabal.config "http://www.stackage.org/$STACKAGEVER/cabal.config" ;;
+
+     "lts/2")
+       export CABALVER=1.18 ;
+       export GHCVER=7.8.4 ;
+       wget -O cabal.config "http://www.stackage.org/$STACKAGEVER/cabal.config" ;;
+
+     "nightly")
+       export CABALVER=1.18 ;
+       export GHCVER=7.8.4 ;
+       echo "http://www.stackage.org/$STACKAGEVER/cabal.config" ;
+       wget -O cabal.config "http://www.stackage.org/$STACKAGEVER/cabal.config" ;;
+
+     *)
+       export GHCVER=unknown ;
+       echo "unknown/invalid Haskell Platform requested" ;
+       exit 1 ;;
+
+    esac
+
   - case "$HPVER" in
      "") ;;
 
@@ -62,7 +93,7 @@ before_install:
        echo "unknown/invalid Haskell Platform requested" ;
        exit 1 ;;
 
-   esac
+    esac
 
   - travis_retry sudo add-apt-repository -y ppa:hvr/ghc
   - travis_retry sudo apt-get update
