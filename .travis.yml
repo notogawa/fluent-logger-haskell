@@ -49,7 +49,7 @@ before_install:
 
      "nightly")
        export CABALVER=1.18 ;
-       export GHCVER=7.8.4 ;
+       export GHCVER=7.10.1 ;
        echo "http://www.stackage.org/$STACKAGEVER/cabal.config" ;
        wget -O cabal.config "http://www.stackage.org/$STACKAGEVER/cabal.config" ;;
 
