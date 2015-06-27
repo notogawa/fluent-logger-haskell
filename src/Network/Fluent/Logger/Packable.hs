@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances, IncoherentInstances, TypeSynonymInstances #-}
+{-# LANGUAGE CPP #-}
 -- | For compatibility with msgpack
 module Network.Fluent.Logger.Packable (Packable(..)) where
 
@@ -7,6 +8,10 @@ import qualified Data.Map as M
 import qualified Data.Vector as V
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
+#if MIN_VERSION_messagepack(0,4,0)
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy.Encoding as LT
+#endif
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
 
@@ -27,7 +32,11 @@ instance Packable Int where
     pack = ObjectInt . fromIntegral
 
 instance Packable String where
+#if MIN_VERSION_messagepack(0,4,0)
+    pack = ObjectString . BS.pack
+#else
     pack = ObjectString . T.pack
+#endif
 
 instance Packable BS.ByteString where
     pack = ObjectBinary
@@ -36,10 +45,18 @@ instance Packable LBS.ByteString where
     pack = ObjectBinary . LBS.toStrict
 
 instance Packable T.Text where
+#if MIN_VERSION_messagepack(0,4,0)
+    pack = ObjectString . T.encodeUtf8
+#else
     pack = ObjectString
+#endif
 
 instance Packable LT.Text where
+#if MIN_VERSION_messagepack(0,4,0)
+    pack = pack . LT.encodeUtf8
+#else
     pack = ObjectString . T.pack . LT.unpack
+#endif
 
 instance Packable a => Packable [a] where
     pack = ObjectArray . map pack

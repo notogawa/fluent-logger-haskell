@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances, IncoherentInstances, TypeSynonymInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE CPP #-}
 -- | For compatibility with msgpack
 module Network.Fluent.Logger.Unpackable where
 
@@ -9,6 +10,10 @@ import Data.MessagePack
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
+#if MIN_VERSION_messagepack(0,4,0)
+import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy.Encoding as LT
+#endif
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as LBS
 
@@ -37,7 +42,11 @@ instance Unpackable Int where
     unpack x = throw $ UnpackError $ "invalid for int: " ++ show x
 
 instance Unpackable String where
+#if MIN_VERSION_messagepack(0,4,0)
+    unpack (ObjectString x) = BS.unpack x
+#else
     unpack (ObjectString x) = T.unpack x
+#endif
     unpack x = throw $ UnpackError $ "invalid for string: " ++ show x
 
 instance Unpackable BS.ByteString where
@@ -49,11 +58,19 @@ instance Unpackable LBS.ByteString where
     unpack x = throw $ UnpackError $ "invalid for binary: " ++ show x
 
 instance Unpackable T.Text where
+#if MIN_VERSION_messagepack(0,4,0)
+    unpack (ObjectString x) = T.decodeUtf8 x
+#else
     unpack (ObjectString x) = x
+#endif
     unpack x = throw $ UnpackError $ "invalid for string: " ++ show x
 
 instance Unpackable LT.Text where
+#if MIN_VERSION_messagepack(0,4,0)
+    unpack x@(ObjectString _) = LT.decodeUtf8 . unpack $ x
+#else
     unpack (ObjectString x) = LT.pack . T.unpack $ x
+#endif
     unpack x = throw $ UnpackError $ "invalid for string: " ++ show x
 
 instance (Unpackable a1, Unpackable a2) => Unpackable (a1, a2) where
