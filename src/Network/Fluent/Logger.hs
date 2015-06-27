@@ -31,12 +31,15 @@ module Network.Fluent.Logger
 
 import qualified Data.ByteString.Char8 as BS ( ByteString, pack, unpack, empty, null)
 import qualified Data.ByteString.Lazy as LBS ( ByteString, length )
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative ( (<$>) )
 import Data.Monoid ( mconcat )
+#endif
 import qualified Network.Socket as NS
 import Network.Socket.Options ( setRecvTimeout, setSendTimeout )
 import Network.Socket.ByteString.Lazy ( sendAll, recv )
 import Control.Monad ( void, forever, when )
-import Control.Applicative ( (<$>) )
 import Control.Concurrent ( ThreadId, killThread, threadDelay )
 import Control.Concurrent.STM ( atomically, orElse
                               , TChan, newTChanIO, readTChan, peekTChan, writeTChan
