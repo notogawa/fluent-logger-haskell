@@ -9,6 +9,7 @@ matrix:
     - env: RESOLVER=lts-4
     - env: RESOLVER=lts-5
     - env: RESOLVER=lts-6
+    - env: RESOLVER=lts-7
     - env: RESOLVER=nightly
   allow_failures:
     - env: RESOLVER=nightly
@@ -27,8 +28,8 @@ before_install:
 install:
   - stack --no-terminal --skip-ghc-check setup
   - stack --no-terminal --skip-ghc-check test --only-snapshot
-  # install hpc-coveralls
-  - stack --no-terminal --skip-ghc-check install hpc-coveralls
+  # install stack-hpc-coveralls
+  - stack --no-terminal --skip-ghc-check install stack-hpc-coveralls || true
 
 script:
   - stack --no-terminal --skip-ghc-check test --coverage
@@ -45,6 +46,6 @@ script:
   #  fi)
 
 after_script:
-  - hpc-coveralls --exclude-dir=test tests
+  - shc fluent-logger fluent-logger-spec
 
 # EOF
